@@ -77,7 +77,7 @@ pie(tab)
 ## Two categorical variables
 #############
 
-# create cross tabs with the stabs function
+# create cross tabs with the xtabs function
 
 xtabs(~gender + occupation, data = df)
 

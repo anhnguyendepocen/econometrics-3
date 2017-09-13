@@ -61,6 +61,10 @@ df2<- CPS1985
 
 
 cps_lm <- lm(log(wage) ~ experience + I( experience^2)+ education , data = df2)
+
+# quantile regression: for data with nonconstant variance: estimates the quantile impact of the regressio model
+# http://data.library.virginia.edu/getting-started-with-quantile-regression/
+
 cps_rq <- rq(log(wage) ~ experience + I( experience^2) + education, data = df2, tau = seq(0.2, 0.8, by = 0.15))
 
 
