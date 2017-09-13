@@ -196,6 +196,49 @@ consump1 <- dynlm(consumption ~dpi + L(dpi), data = USMacroG)
 
 dwtest(consump1)
 
-# also the bos -pierse and box ljung tests:
+# also the box -pierse and box ljung tests:
 
 Box.test(residuals(consump1), typ ='Ljung-Box')
+
+# breusch-godfrey test for serial correlation of order 1:
+
+# more detail on auto-correlation in chapter 6
+
+
+##########
+# 4.3 Robust standard errors and tests
+##########
+
+
+# today there have been many preocedures createdf for heteroskedasticity and heteroskedasticity with autocorrelation consistent procedures
+# the problem is that standard t and f tests performed for a fitted linear moade assume the errors 
+# are homoskedastic and uncorrelated 
+# sandwich package includes the functions vcovHC() and vcovHAC() - these can be researched further in Zeileis(2004)
+
+# HC estimators
+
+# both the vcovhc and the vcov give about the same answers:
+
+vcov(jour_lm)
+vcovHC(jour_lm)
+
+coeftest(jour_lm, vcov = vcovHC)
+
+# to illustrate how the robust covariance matrices can be used, let's compare a simple versus quadratic model
+
+ps_lm<- lm(Expenditure ~ Income, data = ps)
+ps_lm2 <- lm(Expenditure ~ Income + I(Income^2), data =ps)
+anova ( ps_lm, ps_lm2)
+
+# the significance seen here is simply caused by one spurious outlier
+
+
+waldtest(ps_lm, ps_lm2, vcov = vcovHC(ps_lm2, type = "HC4"))
+
+
+# this shows that the quadratic term is in fact not significant; an equivalent result can be obtained
+# via coeftest(ps_lm2, vcov = vcovHC(ps_lm2, type = "HC4"))- p.109
+
+### HAC estimators
+
+# pretty much already covered with coeff and wald test
