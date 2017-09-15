@@ -1,0 +1,101 @@
+---
+title: "Unit 3 Homework - Housing regression with AES data"
+output:
+  word_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+# load packages
+```{r}
+
+packages <- c("AER", "ggplot2", "PerformanceAnalytics")
+
+sapply(packages, library, character.only = TRUE)
+```
+
+# Read in the data
+```{r}
+
+data("HousePrices")
+
+df<- HousePrices
+
+```
+
+# Quick EDA
+
+```{r}
+
+summary(df)
+str(df)
+head(df)
+
+```
+
+### Looks like we have a few factors that are 2 levels and not boolean. Although R will fix this, lets fix that:
+
+```{r}
+
+df$driveway <- as.numeric(df$driveway =='yes')
+df$recreation<- as.numeric(df$recreation =='yes')
+df$fullbase <- as.numeric(df$fullbase =='yes')
+df$gasheat <- as.numeric(df$gasheat =='yes')
+df$aircon <- as.numeric(df$aircon == 'yes')
+df$prefer <- as.numeric(df$prefer == 'yes')
+```
+
+
+
+### let's look at some breakdowns of the data:
+
+```{r}
+
+df_names <- names(df)
+
+#scatterplotMatrix(~price + lotsize + bedrooms + bathrooms , data = df)
+pairs(~log(price) +price + log(lotsize) + lotsize + bedrooms + bathrooms +stories , data = df)
+
+
+
+```
+### correlation matrix:
+
+```{r}
+# cor(df)
+
+
+cor(log(df$price), df$lotsize)
+cor(log(df$price), df$bedrooms)
+cor(log(df$price), df$bathrooms)
+cor(log(df$price), df$stories)
+
+
+cor(df$price, df$lotsize)
+cor(df$price, df$bedrooms)
+cor(df$price, df$bathrooms)
+cor(df$price, df$stories)
+
+
+```
+
+### the scatterplot matrix is interesting,let's take a deeper look:
+
+```{r}
+
+par(mfrow = c(3,1))
+
+# plot price versus lot size
+ggplot(df, aes(y = price, x = lotsize)) + geom_point(shape = 1) + geom_smooth(method = lm, se = FALSE)
+
+# plots log(price) versus lot size
+
+ggplot(df, aes(y = log(price), x = lotsize)) + geom_point(shape = 1) + geom_smooth(method = lm, se = FALSE)
+
+```
+
+
+
