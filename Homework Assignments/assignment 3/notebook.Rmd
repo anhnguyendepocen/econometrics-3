@@ -10,9 +10,9 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 # load packages
-```{r}
+```{r, results = 'hide'}
 
-packages <- c("AER", "ggplot2", "PerformanceAnalytics")
+packages <- c("AER", "ggplot2", "PerformanceAnalytics", "plyr")
 
 sapply(packages, library, character.only = TRUE)
 ```
@@ -36,7 +36,7 @@ head(df)
 
 ```
 
-### Looks like we have a few factors that are 2 levels and not boolean. Although R will fix this, lets fix that:
+### Looks like we have a few factors that are 2 levels and not boolean. Although R will fix this automatically in the regression, lets fix that:
 
 ```{r}
 
@@ -62,22 +62,32 @@ pairs(~log(price) +price + log(lotsize) + lotsize + bedrooms + bathrooms +storie
 
 
 ```
-### correlation matrix:
+
+### correlations:
 
 ```{r}
 # cor(df)
 
 
+# log-base
 cor(log(df$price), df$lotsize)
 cor(log(df$price), df$bedrooms)
 cor(log(df$price), df$bathrooms)
 cor(log(df$price), df$stories)
 
+# base-base
 
 cor(df$price, df$lotsize)
 cor(df$price, df$bedrooms)
 cor(df$price, df$bathrooms)
 cor(df$price, df$stories)
+
+# log-log
+
+cor(log(df$price), log(df$lotsize))
+cor(log(df$price), log(df$bedrooms))
+cor(log(df$price), log(df$bathrooms))
+cor(log(df$price), log(df$stories))
 
 
 ```
@@ -95,7 +105,268 @@ ggplot(df, aes(y = price, x = lotsize)) + geom_point(shape = 1) + geom_smooth(me
 
 ggplot(df, aes(y = log(price), x = lotsize)) + geom_point(shape = 1) + geom_smooth(method = lm, se = FALSE)
 
+
+# plots log(price) by bedrooms
+
+ggplot(df, aes(x =as.factor(bedrooms), y = log(price)), color = bedrooms) +  geom_boxplot(outlier.colour = 'red', fun.y = mean)
+
+# interesting that when 6 bedrooms are hit that the price drops, I bet there are fewer observations here
+
+ggplot(df, aes(x =as.factor(bathrooms), y = log(price)), color = bathrooms) +  geom_boxplot(outlier.colour = 'red', fun.y = mean)
+
+# must be very few 4 bathroom houses as well
+
+```
+```{r}
+count(df, 'bedrooms')
+
+# there are only 2-6 bedroom houses and 2 - 1 bedrooms houses
+
+```
+```{r}
+count(df, 'bathrooms')
+
+# there is only 1-  4 bathroom house
+
 ```
 
 
+
+
+# Create training and test sets of data:
+```{r}
+
+# doing an 80-20 split for convenience:
+
+# create the holdout indices:
+set.seed(100)
+
+indices <- sample(1:nrow(df), size = nrow(df) *.2)
+training<- df[-indices,]
+test <- df[indices,]
+
+# check to make sure that it worked (sb 0)
+
+print(nrow(df) - (nrow(training) + nrow(test)))
+
+```
+
+# Baseline naive regression:
+
+```{r}
+
+# the goal is to beat this naive forecast:
+
+
+naive_lm <- lm(price~ lotsize, data = training)
+
+```
+
+### Naive summary:
+
+```{r}
+
+summary(naive_lm)
+
+
+```
+
+### Naive ANOVA
+
+```{r}
+
+Anova(naive_lm)
+
+```
+
+It does appear that the lot size variable is significant
+
+### Diagnostics:
+
+```{r}
+par(mfrow = c(3,2))
+
+plot(naive_lm, which = 1:6)
+
+par(mfrow = c(1,1))
+
+```
+
+### based on the residuals of this model there are a few things to note:
+    1.) There appears to be some heteroskedasticity in the residuals, this may be due to sparsity in the data, it may also be because we have not transformed any variables yet
+    2.) This also means that the residuals are not normally distributed (potentially based on QQplot)
+    3.) WE do seem to have a few highly influential outliers; although maybe not as much of a concern given that we are training on 437 observations
+
+### Naive accuracy:
+
+```{r}
+
+naive_pred<- predict(naive_lm,  test)
+
+MAPE <- mean(abs(naive_pred / test$price -1))
+
+MAPE
+
+```
+
+### Now that we have established a baseline error of 30% to beat, let's try to beat it:
+
+
+### Model 1: add bathrooms, bedrooms, stories
+
+```{r}
+
+lm<- lm(log(price)~ lotsize + bathrooms + bedrooms + stories, data = training)
+
+summary(lm)
+
+
+```
+
+It looks like the adjusted r-squared went up a good bit in this model and that all of the variables appear to be significatnt.  We also appear to be getting an overall significant result besed on the overall F-test. 
+
+We also need to check for collinearity:
+
+```{r}
+
+vif(lm)
+
+```
+
+This is actually a good sign.  It appears that there is very little collinearity between the variables (this was also evidenced in the previous observations of correlations in the scatterplot matrix)
+
+### Diagnostics:
+
+```{r}
+par(mfrow = c(3,2))
+
+plot(lm, which = 1:6)
+
+par(mfrow = c(1,1))
+
+```
+
+This looks alot better, the redisuals appear to be normally distributed and they do appear to be homoskedastic (despite the line looking odd - this is just because of the lack of observations, we still maintain residuals within the range).  There do appear to be some leverage, points, but we can address those later if we really need to tunr the model.  The Cook's D is still very low overall.
+
+
+Test the accuracy:
+
+```{r}
+
+pred_1 <- predict(lm, test)
+
+MAPE <- mean(abs(pred_1 / log(test$price) -1))
+
+MAPE
+
+
+```
+
+This model produces an error rate of 2.0%, pretty impressive improvement with just a few additional variables
+
+### Model 2 : transform lotsize
+
+
+```{r}
+
+training_2<- training
+training_2$lotsize <- log(training_2$lotsize)
+
+test_2<- training
+test_2$lotsize <- log(test_2$lotsize)
+
+
+lm_2<- lm(log(price)~ lotsize + bathrooms + bedrooms + stories, data = training_2)
+
+summary(lm_2)
+
+```
+
+The adj r-squared went up slightly with this model, which could be a good sign given that we did not add any additional variables
+
+```{r}
+par(mfrow = c(3,2))
+
+plot(lm_2, which = 1:6)
+
+par(mfrow = c(1,1))
+```
+
+This model looks even better
+
+Test the accuracy:
+
+```{r}
+
+pred_2 <- predict(lm_2, test_2)
+
+MAPE <- mean(abs(pred_2 / log(test_2$price) -1))
+
+MAPE
+
+
+```
+
+ Ok, a solid improvement in accuracy of about 40 basis points
+ 
+### Model 3 : add the log of the remaining variables
+
+```{r}
+
+training_3<- training
+training_3$lotsize <- log(training_3$lotsize)
+training_3$bathrooms <- log(training_3$bathrooms)
+training_3$bedrooms <- log(training_3$bedrooms)
+training_3$stories <- log(training_3$stories)
+
+test_3<- test
+test_3$lotsize <- log(test_3$lotsize)
+test_3$bathrooms <- log(test_3$bathrooms)
+test_3$bedrooms <- log(test_3$bedrooms)
+test_3$stories <- log(test_3$stories)
+
+
+
+lm_3<- lm(log(price)~ lotsize + bathrooms + bedrooms + stories, data = training_3)
+
+summary(lm_3)
+
+```
+ 
+There is very little improvmement in the asj r^2 here.  This probably means that we may not be adding that much more explaianbility to the model.  We also notice that the coefficients for bedrooms and stories are very small for each percentage change in the respective variable
+
+```{r}
+
+pred_3 <- predict(lm_3, test_3)
+
+MAPE <- mean(abs(pred_3 / log(test_3$price) -1))
+
+MAPE
+
+
+```
+
+This model was only slightly better than the original (2% error).  However, the previous model actually beat this model's accuracy score.  
+
+From an accuracy point of view, this is proably the best model, we can look at the ANOVAs as well to get a better understanding of the model's abilities to capture differences.
+
+### ANOVA tests:
+
+#### Naive versus lm_1:
+
+```{r}
+
+anova( lm_2, lm_3)
+
+```
+
+The difference between the 2 models is very small and therefore, not signficant.  In this case, we would choose lm_2
+
+### Conclusion
+
+LM2 produced the highest accuracy and was not significantly different from the model with all variables logged.  Therefore, we would select this model as it is simpler and easier to explain.
+
+While we didn't necessarily evaluate the models all solely based on the the ANOVA approach, we did take more of a data mining approach of looking at accuracy, which is what tends to count in the end assuming all assumptions were met.  In this case, we met all of the regression assumptions nad produced a model that was more accurate.  Going forward, we might consider trying additional regressions based on machine learning classification, such as Support vector regression, artificial neural networks, or boosting
+
+ 
 
