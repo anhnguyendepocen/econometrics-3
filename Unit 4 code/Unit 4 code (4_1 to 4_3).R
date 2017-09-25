@@ -85,7 +85,8 @@ text(id, ps_hat[id], rownames(ps)[id], pos =1, xpd = TRUE) # label the outliers
 ### Deletion diagnostics - leave one out
 
 # excluding a specific observaton in each iteration
-# any observation whose removal causes a big swing n the data is said to be highly influential - may or may not have large leverage
+# any observation whose removal causes a big swing n the data is said to be highly influential - 
+  #may or may not have large leverage
 
 # rstudent() - externally studentized residuals
 
@@ -142,7 +143,8 @@ jour_lm <- lm(log(subs) ~ log(citeprice), data = journals)
 bptest(jour_lm)
 
 
-# the WHite test picks up the heterol uses the original regressors as well as their squares and interactions in the aux regression
+# the WHite test picks up the heterol uses the original regressors as well as their squares and 
+  #interactions in the aux regression
 # passed as a second formula to bptest
 
 bptest(jour_lm, ~log(citeprice) + I(log(citeprice)^2), data = journals)
@@ -159,7 +161,7 @@ gqtest(jour_lm, order.by = ~citeprice, data = journals)
 
 # assumtion of erro = 0 is essential
 
-# ramsey's reset test does this test 9regression specification error test
+# ramsey's reset test does this test regression specification error test
 
 
 resettest(jour_lm)
@@ -167,15 +169,16 @@ resettest(jour_lm)
 
 
 # the rainbow test:
-# even a misspecified model might be able to fit the data reasonably well in the center of the sample but might lack fit in the tails, fits model to subsample
-#and comapres to the model fitted with the full sample using an F-test or mahal distance
+# even a misspecified model might be able to fit the data reasonably well in the center of the sample 
+# but might lack fit in the tails, fits model to subsample
+# and comapres to the model fitted with the full sample using an F-test or mahal distance
 
 raintest(jour_lm, order.by = ~age, data = journals)
 
 # Harvey collier test:
 
 # relies on ordering hte data prior to analysis
-# recursively fits data : recursive redisuals calculated ans are essentialyl standarized one teps ahead prediction errors
+# recursively fits data : recursive redisuals calculated and are essentialyl standarized one teps ahead prediction errors
 # simple t-test for zero mean
 
 harvtest(jour_lm, order.by = ~age, data = journals)
